@@ -1,0 +1,5 @@
+/app/extracts/naturals/*.txt
+/app/extracts/*.txt
+/documents/*.pdf
+/spreadsheets/*
+/main
