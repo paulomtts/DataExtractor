@@ -1,19 +1,12 @@
-from sqlite3 import Timestamp
-from app_classes import Document, Group, Block
 from aux_funcs import format_date, format_number
+from app_classes import Document, Entity, Extract
 from configparser import ConfigParser
+from xlwings import App, Book
 from datetime import datetime
 from pandas import read_excel
 from time import sleep
 from tika import initVM
 from os import path
-from xlwings import App, Book
-
-# import xlwings as xw
-# import pandas as pd
-# import time
-# import tika
-# import os
 
 ########################################################################################################################################################################################################################
 ROOT_PATH = path.dirname(__file__).replace('/app', '').replace('\\', '/')
@@ -42,14 +35,14 @@ def setup_objects():
 
     doc_lst  = [Document(f'{ROOT_PATH}/documents', f'{file_name}') for file_name in CONFIG_XL.keys()]
     for doc in doc_lst:
-        doc.add_groups([Group(id_number) for id_number in CONFIG_XL[doc.name]['id_numbers']])
+        doc.set_entities([id_number for id_number in CONFIG_XL[doc.name]['id_numbers']])
 
 now = lambda: datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 "Return the date and time in standard format."
 
 def main():
     """Extract data from all files and parse them into separate excel files."""
-    doc: Document; grp: Group; blk: Block
+    doc: Document; ent: Entity; ext: Extract
 
     # Set variables
     drop_cols = ['MONTH', 'YEAR', date_key, id_key]
@@ -75,7 +68,7 @@ def main():
         
         print('Done!')
         print('Extracting data...')
-        doc.extract_data(text_ptt)
+        doc.set_extracts(text_ptt)
 
         # Log line list
         with open(f'{ROOT_PATH}/app/extracts/naturals/{TIMESTAMP}_{file_name}_nat.txt', 'w', encoding='UTF-8') as fl:
@@ -84,8 +77,8 @@ def main():
 
         # Log extracted data
         with open(f'{ROOT_PATH}/app/extracts/{TIMESTAMP}_{doc.name}_ext.txt', 'w', encoding='UTF-8') as fl:
-            for obj in Block.lst:
-                obj: Block
+            for obj in Extract.lst:
+                obj: Extract
                 fl.write(obj.header + '\n')
                 fl.write(obj.body+ '\n')
                 fl.write(obj.footer+ '\n')
@@ -93,19 +86,19 @@ def main():
 
         # Extract properties from data
         print('Acquiring properties for each segment...')
-        for blk in Block.lst:
-            blk.extract_properties(blk.header, header_ptt, header_kwrds)
-            blk.extract_properties(blk.body, body_ptt, body_kwrds)
-            blk.extract_properties(blk.footer, footer_ptt, footer_kwrds)
+        for ext in Extract.lst:
+            ext.set_properties(ext.header, header_ptt, header_kwrds)
+            ext.set_properties(ext.body, body_ptt, body_kwrds)
+            ext.set_properties(ext.footer, footer_ptt, footer_kwrds)
 
         # Assign blocks to groups and build dataframes from properties
         print('Assigning Blocks to Groups...')
-        for grp in doc.groups:
-            grp.acquire_blocks('header', id_key)
+        for ent in doc.entities:
+            ent.acquire_extracts('header', id_key)
 
-            header = grp.build_dataframe(header_kwrds, 'header')
-            body   = grp.build_dataframe(body_kwrds, 'body')
-            footer = grp.build_dataframe(footer_kwrds, 'footer')
+            header = ent.build_dataframe(header_kwrds, 'header')
+            body   = ent.build_dataframe(body_kwrds, 'body')
+            footer = ent.build_dataframe(footer_kwrds, 'footer')
 
             # Treat data and join dataframes
             df = header.join([body, footer])
@@ -125,7 +118,7 @@ def main():
 
         # Write to excel
         print(f'{doc.name} - Writing to excel file...')
-        app = App(visible=False)
+        App(visible=False)
         wb = Book()
         ws = wb.sheets[0]
 
