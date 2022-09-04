@@ -1,6 +1,9 @@
-from tika import parser as tkpr
 from pandas import DataFrame, concat
+from tika import parser as tkpr
+
 import re
+
+AVOID_KEYS = ['layout', 'pk_area', 'pk_name']
 
 class Extract():
     def __init__(self, query_patterns: list, **kwargs) -> None:
@@ -17,7 +20,7 @@ class Extract():
             text = getattr(self, area)
 
             for word in keywords:
-                cmp = re.compile(self.query_ptts[area] % word)
+                cmp = re.compile(self.query_ptts[area].format(word))
                 srch = cmp.search(text)
 
                 if not srch: continue
@@ -45,25 +48,25 @@ class Entity():
             if ext.properties[pk_area][pk_name] == self.pk:
                 self.extracts.append(ext)
 
-    def build_dataframe(self, dct: dict):
+    def build_dataframe(self, search_data: dict):
         """From a dictionary in pattern area:keywords, build a dataframe containing
         all of this Entity's Extract objects properties."""
         df_lst = []
-        for area, keywords in dct.items():
+        for area, keywords in search_data.items():
             data = [ext.properties[area] for ext in self.extracts if ext.properties[area] != {}]
             df_lst.append(DataFrame(data, columns=keywords))
         self.dataframe = concat(df_lst, axis=1)
 
 class Document():
-    def __init__(self, file_path: str, file_name: str) -> None:
-        natural_text   :str    = tkpr.from_file(f'{file_path}/{file_name}.pdf')['content']
+    def __init__(self, path: str, name: str) -> None:
+        natural_text   :str    = tkpr.from_file(f'{path}/{name}')['content']
         line_lst       :list   = []
 
         for ln in natural_text.split('\n'):
             if ln == '': continue
             line_lst.append(ln.strip())
 
-        self.name      :str    = file_name
+        self.name      :str    = name
         self.text      :str    = '\n'.join(line_lst)
         self.entities  :list   = []
         self.extracts  :list   = []
@@ -72,8 +75,8 @@ class Document():
     # METHODS #####################################################
     def set_extracts(self, pattern_dct: dict):
         """Set Extracts containing useful text from this Document's text."""
-        layout_pattern = re.compile(pattern_dct.pop('layout'), re.M)
-        query_patterns = {key: val[0] for key, val in pattern_dct.items()}
+        layout_pattern = re.compile(pattern_dct['layout'], re.M)
+        query_patterns = {key: val[0] for key, val in pattern_dct.items() if key != 'layout'}
 
         for res in re.finditer(layout_pattern, self.text):
             self.extracts.append(Extract(query_patterns, **res.groupdict()))
@@ -83,68 +86,20 @@ class Document():
         pk_list = set([ext.properties[pk_area][pk_name] for ext in self.extracts])
         self.entities = [Entity(pk) for pk in pk_list]
 
-    def set_words(self, search_data: dict, avoid: list, pattern_dct: dict):
+    def set_words(self, area_lst: list, avoid: list, pattern_dct: dict):
         """Get list of words within a certain area in all extracts."""
-        filter_word = lambda word: word if not any(av in word for av in avoid) and len(word) > 2 else None
         ext: Extract
 
-        area_lst = list(search_data.keys())
-        word_patterns = {key: val[1] for key, val in pattern_dct.items()}
-        self.word_dct = {area: [] for area in area_lst}
-        
+        filter_word = lambda word: word if not any(av in word for av in avoid) and len(word) > 2 else None
+        self.word_dct = {area: [] for area in area_lst if area != 'layout'}
+
         for area in area_lst:
+            if area == 'layout': continue
+            if pattern_dct.get(area, None) is None: continue
+
             for ext in self.extracts:
-                words = list(filter(filter_word, ext.acquire_words(area, word_patterns[area])))
+                words =  ext.acquire_words(area, pattern_dct[area][1])
+                words = list(filter(filter_word, words))
                 self.word_dct[area] += words
+
             self.word_dct[area] = list(set(self.word_dct[area]))
-
-
-
-
-
-from os import path
-root = path.dirname(__file__)
-
-ext: Extract
-ent: Entity
-pattern_dct: dict
-
-# From CONFIG.INI
-pattern_dct_lst = [
-{'layout': """(?P<header>Demonstrativo de Pagamento(?:.*\n)*?Agência Crédito: .*)
-(?P<body>(?:.*\n)*?BASES \/ Depósito FGTS.*)
-(?P<footer>INSS: (?:.*\n)*?FGTS: .*)""",
-'header': ("(?P<name>%s):?(?:[:]?\s*)(?P<value>[\dA-z,.\/\s-]*?\n|[\dA-z-.,*\/]*)",     "[A-Z].+?:"),
-'body': ("(?P<name>%s):?.*?(?P<value>[0-9.,]*)\n",                                      "\s[^0-9,-]*")
-},
-
-{'layout': """(?P<header>Demostrativo de Pagamento(?:.*\n)*?Ag.Crédito: .*)
-(?P<body>(?:.*\n)*?LÍQUIDO CREDITADO EM CONTA.*)
-(?P<footer>INSS:(?:\s?.*\n)*?FGTS:\s?.*)""",
-'header': ("(?P<name>%s):?(?:[:]?\s*)(?P<value>[\dA-z,.\/\s-]*?\n|[\dA-z-.,*\/]*)",     "[A-Z].+?:"),
-'body': ("(?P<name>%s):?.*?(?P<value>[0-9.,]*)\n",                                      "\s[^0-9,-]*")
-}
-]
-
-# From GUI
-pk_data = ('header', 'Nº pessoal')
-search_data = {'header': ['Data de Crédito', 'Nº pessoal'], 
-               'body': ['Ordenado', 'Reemb.Férias no Mês', 'Adiant.Vale Transporte']}
-avoid_words = ['DESCONTOS', 'TOTAL', 'LIQUIDO', '/', 'NUM.', 'VALOR']
-
-# Acquisition & pre-processing ################################
-doc = Document(f'{root}/documents/', 'simple2')
-for pattern_dct in pattern_dct_lst:
-    doc.set_extracts(pattern_dct)
-    doc.set_words(search_data, avoid_words, pattern_dct)
-
-# Data processing #############################################
-for ext in doc.extracts:
-    ext.set_properties(search_data)
-
-# Data grouping ###############################################
-doc.set_entities(*pk_data)
-for ent in doc.entities:
-    ent.gather_extracts(doc.extracts, *pk_data)
-    ent.build_dataframe(search_data)
-    print(ent.dataframe)

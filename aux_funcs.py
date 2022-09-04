@@ -20,12 +20,3 @@ def format_number(number: str):
         return float(''.join(lst[:-1]) + '.' + lst[-1])
     except:
         raise TypeError(f"Input {number!r} is not a number or contains no numbers.")
-
-# EXCEL AUX ###############################################
-def last_cell(ws, col):
-    """Returns range object for the first available cell from down to up in a column. This function IS zero-indexed."""
-    return ws.range(ws.range(xl_col_to_name(col) + '9999').end('up').row+1, col+1)
-
-def last_row(ws, col):
-    """Returns a number for the last used row in a column. This function is NOT zero-indexed"""
-    return ws.range(9999, col).end('up').row
