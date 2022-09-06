@@ -59,7 +59,7 @@ class Extract():
 class Document():
     def __init__(self, file_path: str, file_name: str) -> None:
         self.natural_text   :str    = tkpr.from_file(f'{file_path}/{file_name}')['content']
-        text_lines       :list   = []
+        text_lines          :list   = []
 
         for ln in self.natural_text.split('\n'):
             if ln == '': continue

@@ -25,6 +25,7 @@ def pre_process_documents(folder_path: str):
         for layout in LAYOUT_CONFIGS.values():
             doc.set_extracts(layout['PATTERNS']['EXTRACTION'], layout['PATTERNS']['QUERYING'], layout['INFO'])
             doc.set_keywords(layout['PATTERNS']['PRE_PROCESSING'])
+        
     return documents
 
 def extract_from_text(documents: list, destination_folder: str):
@@ -32,13 +33,16 @@ def extract_from_text(documents: list, destination_folder: str):
     doc: Document; ent: Entity; ext: Extract
     
     for doc in documents:
-        with open(f'{PATH}/app/extracts/naturals/{TIMESTAMP()}__{doc.name}__nat.txt', 'w', encoding='utf-8') as file:
+        with open(f'{PATH}/app/text/naturals/{TIMESTAMP()}__{doc.name}__nat.txt', 'w', encoding='utf-8') as file:
             file.write(doc.natural_text)
+
+        with open(f'{PATH}/app/text/processed/{TIMESTAMP()}__{doc.name}__prc.txt', 'w', encoding='utf-8') as file:
+            file.write(doc.text)
 
         for ext in doc.extracts:
             ext.set_properties()
 
-            with open(f'{PATH}/app/extracts/{TIMESTAMP()}__{doc.name}__ext.txt', 'a', encoding='utf-8') as file:
+            with open(f'{PATH}/app/text/extracts/{TIMESTAMP()}__{doc.name}__ext.txt', 'a', encoding='utf-8') as file:
                 for prop in ext.properties.keys():
                     file.write(getattr(ext, prop) + '\n')
                 file.write('----\n')
@@ -55,7 +59,7 @@ def extract_from_text(documents: list, destination_folder: str):
 # OUTPUT METHODS ###########################################################################################
 def treat_dataframe(dataframe: DataFrame):
     date_column_name = 'Data de Crédito'
-    columns_to_avoid = ['YEAR', 'MONTH'] + [date_column_name]
+    columns_to_avoid = ['YEAR', 'MONTH', 'Nºpessoal', 'Nº pessoal', 'Nº Pessoal'] + [date_column_name]
 
     dataframe = dataframe.fillna('0')
 
@@ -64,7 +68,7 @@ def treat_dataframe(dataframe: DataFrame):
     dataframe['YEAR'] = dataframe[date_column_name].apply(lambda val: val.year)
     dataframe = dataframe.reindex(columns=['YEAR', 'MONTH'] + [col for col in dataframe.columns if col not in columns_to_avoid])
 
-    for col in [col for col in dataframe.columns if col not in columns_to_avoid + ['Nºpessoal', 'Nº pessoal']]:
+    for col in [col for col in dataframe.columns if col not in columns_to_avoid]:
         try:
             dataframe[col] = dataframe[col].apply(format_number)
         except:
@@ -73,7 +77,7 @@ def treat_dataframe(dataframe: DataFrame):
     dataframe = dataframe.drop_duplicates()
     dataframe = dataframe.sort_values(['YEAR', 'MONTH'])
     dataframe = dataframe.reset_index(drop=True)
-    print(dataframe)
+    # dataframe = dataframe.groupby(['YEAR','MONTH']).sum()
     return dataframe
 
 def write_to_excel(dataframe: DataFrame, doc_name: str, pk: str, destination_folder: str):
@@ -94,7 +98,8 @@ def write_to_excel(dataframe: DataFrame, doc_name: str, pk: str, destination_fol
     pos = 2
     for year in dataframe['YEAR'].unique():
         slice = dataframe[dataframe['YEAR']==year]
-        ws.range(f'A{pos}').options(index=False, header=False).value = slice
+        slice = slice.groupby(['YEAR','MONTH']).sum()
+        ws.range(f'A{pos}').options(header=False).value = slice
         pos += len(slice.index)+1
 
     # Fit columns and rows
@@ -104,10 +109,6 @@ def write_to_excel(dataframe: DataFrame, doc_name: str, pk: str, destination_fol
 
     # Save
     wb.save(f'{destination_folder}{TIMESTAMP()}__{doc_name}__{pk}.xlsx')
-
-    with open(f'{PATH}/app/log.txt', 'a', encoding='utf-8') as file:
-        file.write(doc.natural_text)
-        
     wb.close()
 
 
@@ -116,11 +117,12 @@ try:
 
     for doc in docs:
         doc.remove_keywords_from_extracts({
-            'header': ['Data de Crédito', 'Nºpessoal', 'Nº pessoal'],
+            'header': ['Data de Crédito', 'Nºpessoal', 'Nº pessoal', 'Nº Pessoal'],
             'body': ['ORDENADO', 'Ordenado', 'Adiant.Vale Transporte', 'ADIANT.VALE TRANSPORTE', 'HORAS EXTRAS']
         }, words_to_filter= ['Posição', 'IR', 'Agência Crédito', 'Conta', 'Período', 'Provis', 'Posição', 'Ag.Crédito', 'Nome', 'Empresa'])
 
     extract_from_text(docs, f'{PATH}/spreadsheets/')      # This happens when you click EXTRACT
 except Exception as error:
     with open(f'{PATH}/app/log.txt', 'a', encoding='utf-8') as file:
-        file.write(doc.natural_text)
+        file.write(str(error))
+    print(error)
