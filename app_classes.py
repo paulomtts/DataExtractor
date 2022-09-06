@@ -4,110 +4,152 @@ from tika import parser as tkpr
 import re
 
 class Extract():
-    def __init__(self, pk_data: dict, query_ptts: list, **kwargs) -> None:
+    def __init__(self, layout_info: dict, query_ptts: list, **kwargs) -> None:
         for key, val in kwargs.items():
             setattr(self, key, val)
 
-        self.pk_area       :str     = pk_data['area']
-        self.pk_key        :str     = pk_data['key']
-        self.pk            :str     = None
-
+        self.layout_name   :str     = layout_info['layout_name']
+        self.pk_area       :str     = layout_info['primary_key_area']
+        self.pk_key        :str     = layout_info['primary_key_name']
         self.query_ptts    :dict    = query_ptts
+
+        self.pk            :str     = None
+        self.keywords      :dict    = {}
         self.properties    :dict    = {key:{} for key in kwargs.keys()} # {area_name: {field_name: value}
 
     # METHODS #####################################################
-    def set_properties(self, search_data: dict):
+    def acquire_words(self, area: str, pattern: str):
+        """Get a list of all field words in an area."""
+        
+        text = getattr(self, area)
+        cmp = re.compile(pattern, re.M)
+        words = [wrd.strip() for wrd in cmp.findall(text) 
+                    if wrd not in ['\n/', '\\', ' ', '/', None] 
+                    and len(wrd.strip()) > 2]
+
+        if area not in self.keywords.keys():
+            self.keywords[area] = []
+
+        for wrd in words:
+            wrd = wrd.strip()
+            if wrd not in self.keywords[area]:
+                self.keywords[area].append(wrd.strip())
+        return self.keywords[area]
+
+    def set_properties(self):
         """Set properties for all items in a dictionary given in a key:word_list pattern."""
-        
-        search_data[self.pk_area].insert(0, self.pk_key)
-        
-        for area, keywords in search_data.items():
+
+        for area, keywords in self.keywords.items():
             text = getattr(self, area)
 
             for word in keywords:
-                cmp = re.compile(self.query_ptts[area].format(word))
+                cmp = re.compile(self.query_ptts[area].format(word), re.M)
                 srch = cmp.search(text)
 
                 if not srch: continue
-                key = srch.groupdict().get('name', None)
+                
+                key = srch.groupdict()['name'].strip()
                 val = srch.groupdict()['value'].strip()
+
                 self.properties[area].update({key: val})
-        
-        del search_data[self.pk_area][0]
+
         self.pk = self.properties[self.pk_area][self.pk_key]
+
+
+class Document():
+    def __init__(self, file_path: str, file_name: str) -> None:
+        self.natural_text   :str    = tkpr.from_file(f'{file_path}/{file_name}')['content']
+        text_lines       :list   = []
+
+        for ln in self.natural_text.split('\n'):
+            if ln == '': continue
+            text_lines.append(ln.strip())
+
+        self.name      :str    = file_name.replace('.pdf', '')
+        self.text      :str    = '\n'.join(text_lines)
+        self.entities  :list   = []
+        self.extracts  :list   = []
+        self.keywords  :list   = {}
+
+    # METHODS #####################################################
+    def set_extracts(self, extraction_pattern: dict, querying_patterns: dict, layout_info: dict):
+        """Set Extracts containing useful text from this Document's text."""
+
+        layout_pattern = re.compile(extraction_pattern['layout'])
+
+        for match in re.finditer(layout_pattern, self.text):
+            self.extracts.append(
+                Extract(layout_info, querying_patterns, **match.groupdict())
+            )
     
-    def acquire_words(self, area: str, pattern: str):
-        """Get a list of all field words in an area."""
-        text = getattr(self, area)
-        cmp = re.compile(pattern)
-        lst = [res.strip() for res in cmp.findall(text) if res not in ['\n/', '\\', ' ', '/']]
-        return list(filter(None, lst))
+    def set_keywords(self, pre_processing_patterns: dict):
+        """Use regular expressions to acquire a list of keywords for an area."""
+        ext: Extract
         
+        self.keywords.update({area: [] for area in pre_processing_patterns.keys() if area not in self.keywords.keys()})
+        for area, pattern in pre_processing_patterns.items():
+            for ext in self.extracts:
+                words =  ext.acquire_words(area, pattern)
+                self.keywords[area] += words
+            self.keywords[area] = list(set(self.keywords[area]))
+
+    def remove_keywords_from_extracts(self, words_to_keep: dict, words_to_filter: list):
+        """Remove keywords from each Extract."""
+        ext: Extract
+
+        def _word_filter(word: str, words_to_filter: list):
+            if any(av in word for av in words_to_filter) and len(word) <= 2: 
+                return None
+            return word
+
+        for ext in self.extracts:
+            for area, word_lst in ext.keywords.items():
+                new_wrd_lst = (wrd for wrd in word_lst if wrd in words_to_keep[area])
+                new_wrd_lst = [wrd for wrd in new_wrd_lst if _word_filter(wrd, words_to_filter) is not None]
+                ext.keywords[area] = new_wrd_lst
+
+
+    def set_entities(self):
+        """Setup a new Entity for every key in a list of primary keys."""
+
+        primary_keys = set([ext.pk for ext in self.extracts])
+        self.entities = [Entity(pk) for pk in primary_keys]
+
+
 class Entity():
     def __init__(self, pk: str) -> None:
         self.pk             :str             = pk
         self.extracts       :list[Extract]   = []
-        self.dataframe      :DataFrame       = None
+        self.dataframe      :DataFrame       = DataFrame()
+        self.keywords       :dict            = {}
 
     # METHODS #####################################################
     def gather_extracts(self, extract_lst: list):
         """Group Extract objects onto corresponding Entity."""
+        ext: Extract
+
         for ext in extract_lst:
             if ext.pk == self.pk:
                 self.extracts.append(ext)
 
-    def build_dataframe(self, search_data: dict):
+    def collect_words_from_extracts(self):
+        """Get all keywords from this Entity's Extract objects."""
+
+        for ext in self.extracts:
+            for area, word_lst in ext.keywords.items():
+                if area not in self.keywords:
+                    self.keywords[area] = word_lst
+                else:
+                    self.keywords[area] += [word for word in word_lst if word not in self.keywords[area]]
+
+    def build_dataframe(self):
         """From a dictionary in pattern area:keywords, build a dataframe containing
         all of this Entity's Extract objects properties."""
-        df_lst = []
-        for area, keywords in search_data.items():
+
+        dfs = []
+        for area, words in self.keywords.items():
             data = [ext.properties[area] for ext in self.extracts if ext.properties[area] != {}]
-            df_lst.append(DataFrame(data, columns=keywords))
-        self.dataframe = concat(df_lst, axis=1)
+            dfs.append(DataFrame(data, columns=words))
 
-class Document():
-    def __init__(self, path: str, name: str) -> None:
-        self.natural_text   :str    = tkpr.from_file(f'{path}/{name}')['content']
-        line_lst       :list   = []
-
-        for ln in self.natural_text.split('\n'):
-            if ln == '': continue
-            line_lst.append(ln.strip())
-
-        self.name      :str    = name.replace('.pdf', '')
-        self.text      :str    = '\n'.join(line_lst)
-        self.entities  :list   = []
-        self.extracts  :list   = []
-        self.word_dct  :list   = {}
-
-    # METHODS #####################################################
-    def set_extracts(self, dct: dict):
-        """Set Extracts containing useful text from this Document's text."""
-        layout_pattern = re.compile(dct['MAIN']['layout'], re.M)
-        query_patterns = {key: val for key, val in dct['MAIN'].items() if key != 'layout'}
-        pk_data = dct['PK']
-
-        for res in re.finditer(layout_pattern, self.text):
-            self.extracts.append(Extract(pk_data, query_patterns, **res.groupdict()))
-    
-    def set_entities(self):
-        """Setup a new Entity for every key in a list of primary keys."""
-        pk_list = set([ext.pk for ext in self.extracts])
-        self.entities = [Entity(pk) for pk in pk_list]
-
-    def set_words(self, dct: dict, avoid: list):
-        """Get list of words within a certain area in all extracts."""
-        filter_word = lambda word: word if not any(av in word for av in avoid) and len(word) > 2 else None
-
-        self.word_dct = {area: [] for area in dct.keys()}
-
-        ext: Extract
-        for area in dct.keys():
-            for ext in self.extracts:
-                words =  ext.acquire_words(area, dct[area])
-                words = list(filter(filter_word, words))
-                self.word_dct[area] += words
-
-            self.word_dct[area] = list(set(self.word_dct[area]))
-
-
+        self.dataframe = concat(dfs, axis=1)
+        self.dataframe = self.dataframe.loc[:,~self.dataframe.columns.duplicated()]

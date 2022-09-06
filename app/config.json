@@ -1,32 +1,42 @@
 {
     "LAYOUT_0":{
-        "MAIN":{
-            "layout": "(?P<header>Demonstrativo de Pagamento(?:.*\n)*?Agência Crédito: .*)\n(?P<body>(?:.*\n)*?BASES \/ Depósito FGTS.*)\n(?P<footer>INSS: (?:.*\n)*?FGTS: .*)",
-            "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,.\/\\s-]*?\n|[\\dA-z-.,*\/]*)",
-            "body": "(?P<name>{}):?.*?(?P<value>[0-9.,]*)\n"
+        "INFO":{
+            "layout_name": "LAYOUT_0",
+            "primary_key_area": "header",
+            "primary_key_name": "Nº pessoal"
         },
-        "WORDS":{
-            "header": "[A-Z].+?:",
-            "body": "(?:\/?[0-9]{3,4}\\s?-?\\s)(?P<fld>[A-z.\\s]*)(?:.*)\n"
-        },
-        "PK":{
-            "area": "header",
-            "key": "Nº pessoal"
+        "PATTERNS":{            
+            "EXTRACTION":{
+                "layout": "(?P<header>Demonstrativo de Pagamento(?:.*\n)*?Agência Crédito: .*)\n(?P<body>(?:.*\n)*?BASES \/ Depósito FGTS.*)\n(?P<footer>INSS: (?:.*\n)*?FGTS: .*)"
+            },
+            "PRE_PROCESSING":{
+                "header": "([A-Z].+?)(?::)",
+                "body": "^[\\/A-Z]*?[0-9]{2,}(?: - )?(.*?)(?=[0-9]*.[0-9]*,).*$"
+            },
+            "QUERYING":{
+                "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,.\/\\s-]*?\n|[\\dA-z-.,*\\/]*)",
+                "body": "^[0-9A-Z\\/]{{4,5}}\\s?-?\\s?(?P<name>{}):?\\s+(?:[0-9.,]*)\\s+(?P<value>[0-9.,]*)$"
+            }
         }
     },
     "LAYOUT_1":{
-        "MAIN":{
-            "layout": "(?P<header>Demostrativo de Pagamento(?:.*\n)*?Ag.Crédito: .*)\n(?P<body>(?:.*\n)*?LÍQUIDO CREDITADO EM CONTA.*)\n(?P<footer>INSS:(?:\\s?.*\n)*?FGTS:\\s?.*)",
-            "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,.\/\\s-]*?\n|[\\dA-z-.,*\/]*)",
-            "body": "(?P<name>{}):?.*?(?P<value>[0-9.,]*)\n"
+        "INFO":{
+            "layout_name": "LAYOUT_1",
+            "primary_key_area": "header",
+            "primary_key_name": "Nºpessoal"
         },
-        "WORDS":{
-            "header": "[A-Z].+?:",
-            "body": "(?:\/?[0-9]{3,4}\\s?-?\\s)(?P<fld>[A-z.\\s]*)(?:.*)\n"
-        },
-        "PK":{
-            "area": "header",
-            "key": "Nºpessoal"
+        "PATTERNS":{
+            "EXTRACTION":{
+                "layout": "(?P<header>Demostrativo de Pagamento(?:.*\n)*?Ag.Crédito: .*)\n(?P<body>(?:.*\n)*?LÍQUIDO CREDITADO EM CONTA.*)\n(?P<footer>INSS:(?:\\s?.*\n)*?FGTS:\\s?.*)"
+            },
+            "PRE_PROCESSING":{
+                "header": "([A-Z].+?)(?::)",
+                "body": "^[\\/A-Z]*?[0-9]{2,}(?: - )?(.*?)(?=[0-9]*.[0-9]*,).*$"
+            },
+            "QUERYING":{
+                "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,.\/\\s-]*?\n|[\\dA-z-.,*\\/]*)",
+                "body": "^[0-9A-Z\\/]{{4,5}}\\s?-?\\s?(?P<name>{}):?\\s+(?:[0-9.,]*)\\s+(?P<value>[0-9.,]*)$"
+            }
         }
     }
 }

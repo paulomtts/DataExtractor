@@ -9,37 +9,34 @@ import json
 
 PATH = os_path.dirname(__file__)
 TIMESTAMP = lambda: str(datetime.now().strftime('%y-%m-%dT%H-%M'))
+
 with open(f'{PATH}/app/config.json', encoding='utf-8') as json_file:
-    CONFIG = json.load(json_file)
+    LAYOUT_CONFIGS = json.load(json_file)
 
-# MAIN METHODS #############################################################################################
-def analyze(folder_path: str):
+
+# INPUT METHODS ############################################################################################
+def pre_process_documents(folder_path: str):
     """Pre-process the text by setting up extracts and acquiring lists of words."""
+    
     files = [(folder_path, file_name) for file_name in os_listdir(folder_path) if '.pdf' in file_name]
-    avoid_words = from_gui('avoid_words')
+    documents  = [Document(file_path, file_name) for (file_path, file_name) in files]
+    
+    for doc in documents:
+        for layout in LAYOUT_CONFIGS.values():
+            doc.set_extracts(layout['PATTERNS']['EXTRACTION'], layout['PATTERNS']['QUERYING'], layout['INFO'])
+            doc.set_keywords(layout['PATTERNS']['PRE_PROCESSING'])
+    return documents
 
-    doc_lst  = [Document(path, name) for (path, name) in files]
-    for doc in doc_lst:
-        for dct in CONFIG.values():
-            doc.set_extracts(dct)
-            doc.set_words(dct['WORDS'], avoid_words)
-    return doc_lst
-
-def extract(doc_lst: list):
+def extract_from_text(documents: list, destination_folder: str):
     """Extract data from the the document and send it to excel."""
     doc: Document; ent: Entity; ext: Extract
-
-    search_data = from_gui('search_data')
     
-    for doc in doc_lst:
-
-        # Write natural .txt
+    for doc in documents:
         with open(f'{PATH}/app/extracts/naturals/{TIMESTAMP()}__{doc.name}__nat.txt', 'w', encoding='utf-8') as file:
             file.write(doc.natural_text)
 
-        # Write extract .txt
         for ext in doc.extracts:
-            ext.set_properties(search_data)
+            ext.set_properties()
 
             with open(f'{PATH}/app/extracts/{TIMESTAMP()}__{doc.name}__ext.txt', 'a', encoding='utf-8') as file:
                 for prop in ext.properties.keys():
@@ -49,29 +46,37 @@ def extract(doc_lst: list):
         doc.set_entities()
         for ent in doc.entities:
             ent.gather_extracts(doc.extracts)
-            ent.build_dataframe(search_data)
-            dataframe = treat_dataframe(ent.dataframe, 'Data de Crédito')
-            to_excel(dataframe, doc.name, ent.pk.replace('.', ''))
+            ent.collect_words_from_extracts()
+            ent.build_dataframe()
+            dataframe = treat_dataframe(ent.dataframe)
+            write_to_excel(dataframe, doc.name, ent.pk.replace('.', ''), destination_folder)
+
 
 # OUTPUT METHODS ###########################################################################################
-def treat_dataframe(dataframe: DataFrame, date_col: str):
-    avoid_cols = ['YEAR', 'MONTH'] + [date_col]
+def treat_dataframe(dataframe: DataFrame):
+    date_column_name = 'Data de Crédito'
+    columns_to_avoid = ['YEAR', 'MONTH'] + [date_column_name]
 
     dataframe = dataframe.fillna('0')
-    dataframe[date_col] = dataframe[date_col].apply(format_date)
-    dataframe['MONTH'] = dataframe[date_col].apply(lambda val: val.month)
-    dataframe['YEAR'] = dataframe[date_col].apply(lambda val: val.year)
-    dataframe = dataframe.reindex(columns=['YEAR', 'MONTH'] + [col for col in dataframe.columns if col not in avoid_cols])
 
-    for col in [col for col in dataframe.columns if col not in avoid_cols]:
-        dataframe[col] = dataframe[col].apply(format_number)
+    dataframe[date_column_name] = dataframe[date_column_name].apply(format_date)
+    dataframe['MONTH'] = dataframe[date_column_name].apply(lambda val: val.month)
+    dataframe['YEAR'] = dataframe[date_column_name].apply(lambda val: val.year)
+    dataframe = dataframe.reindex(columns=['YEAR', 'MONTH'] + [col for col in dataframe.columns if col not in columns_to_avoid])
+
+    for col in [col for col in dataframe.columns if col not in columns_to_avoid + ['Nºpessoal', 'Nº pessoal']]:
+        try:
+            dataframe[col] = dataframe[col].apply(format_number)
+        except:
+            continue
 
     dataframe = dataframe.drop_duplicates()
     dataframe = dataframe.sort_values(['YEAR', 'MONTH'])
     dataframe = dataframe.reset_index(drop=True)
+    print(dataframe)
     return dataframe
 
-def to_excel(dataframe: DataFrame, doc_name: str, ent_id: str):
+def write_to_excel(dataframe: DataFrame, doc_name: str, pk: str, destination_folder: str):
     """Write data to excel."""
     wb: Book; ws: Sheet
     
@@ -79,44 +84,43 @@ def to_excel(dataframe: DataFrame, doc_name: str, ent_id: str):
     App(visible=False)
     wb = Book()
     ws = wb.sheets[0]
-    try:
-        # Format table headers
-        ws.range(f'A1').value = list(dataframe.columns)
-        ws.range(f'A1:AAA1').font.bold = True
-        ws.range(f'A1:AAA1').font.size = 14
 
-        # Write data
-        pos = 2
-        for year in dataframe['YEAR'].unique():
-            slice = dataframe[dataframe['YEAR']==year]
-            ws.range(f'A{pos}').options(index=False, header=False).value = slice
-            pos += len(slice.index)+1
+    # Format table headers
+    ws.range(f'A1').value = list(dataframe.columns)
+    ws.range(f'A1:AAA1').font.bold = True
+    ws.range(f'A1:AAA1').font.size = 14
 
-        # Fit columns and rows
-        for ws in wb.sheets:
-                ws.autofit(axis="columns")
-                ws.autofit(axis="rows")
+    # Write data
+    pos = 2
+    for year in dataframe['YEAR'].unique():
+        slice = dataframe[dataframe['YEAR']==year]
+        ws.range(f'A{pos}').options(index=False, header=False).value = slice
+        pos += len(slice.index)+1
 
-        # Save
-        wb.save(f'{PATH}/spreadsheets/{TIMESTAMP()}__{doc_name}__{ent_id}.xlsx')
-    except:
-        pass
-    finally:
-        wb.close()
+    # Fit columns and rows
+    for ws in wb.sheets:
+            ws.autofit(axis="columns")
+            ws.autofit(axis="rows")
+
+    # Save
+    wb.save(f'{destination_folder}{TIMESTAMP()}__{doc_name}__{pk}.xlsx')
+
+    with open(f'{PATH}/app/log.txt', 'a', encoding='utf-8') as file:
+        file.write(doc.natural_text)
+        
+    wb.close()
 
 
+try:
+    docs = pre_process_documents(f'{PATH}/documents/')       # Used by GUI access word lists in each document
 
-#####################################################
-# SINCE THIS WILL COME FROM GUI, EVERY ITERATION WILL GET IT'S PROPER SET
-def from_gui(label: str):
-    avoid_words = ['DESCONTOS', 'TOTAL', 'LIQUIDO', '/', 'NUM.', 'VALOR']
-    search_data = {'header': ['Data de Crédito'], 
-                'body': ['Ordenado', 'Reemb.Férias no Mês', 'Adiant.Vale Transporte', 'ORDENADO']}
-    if label == 'avoid_words':
-        return avoid_words
-    elif label == 'search_data':
-        return search_data
-#####################################################
+    for doc in docs:
+        doc.remove_keywords_from_extracts({
+            'header': ['Data de Crédito', 'Nºpessoal', 'Nº pessoal'],
+            'body': ['ORDENADO', 'Ordenado', 'Adiant.Vale Transporte', 'ADIANT.VALE TRANSPORTE', 'HORAS EXTRAS']
+        }, words_to_filter= ['Posição', 'IR', 'Agência Crédito', 'Conta', 'Período', 'Provis', 'Posição', 'Ag.Crédito', 'Nome', 'Empresa'])
 
-docs = analyze(f'{PATH}/documents/')       # Used by GUI access word lists in each document
-extract(docs)                              # This happens when you click EXTRACT
+    extract_from_text(docs, f'{PATH}/spreadsheets/')      # This happens when you click EXTRACT
+except Exception as error:
+    with open(f'{PATH}/app/log.txt', 'a', encoding='utf-8') as file:
+        file.write(doc.natural_text)

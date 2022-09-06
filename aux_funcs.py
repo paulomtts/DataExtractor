@@ -4,13 +4,13 @@ from datetime import datetime
 from re import findall
 
 # FORMATTING ##############################################
-def format_date(date: str):       
+def format_date(date: str):  
     if date is not None:
         try:
             date = dtpr.parse(date)
             return datetime.strptime(datetime.isoformat(date), '%Y-%m-%dT%H:%M:%S').date()
         except:
-            raise TypeError(f'Coult not format input {date!r} into a date.')
+            raise TypeError(f'Coult not format input into a date.')
 
 
 def format_number(number: str):
