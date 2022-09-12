@@ -1,0 +1,1 @@
+This folder stores the logs and operation files.

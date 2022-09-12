@@ -1,9 +1,9 @@
-app/log.txt
-app/text/naturals/*
-app/text/extracts/*
-app/text/processed/*
-documents/*
-spreadsheets/*
+app/logs/*.txt
+app/text/naturals/*.txt
+app/text/extracts/*.txt
+app/text/processed/*.txt
+documents/*.pdf
+spreadsheets/*.xlsx
 main
 
 

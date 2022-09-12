@@ -1,3 +1,4 @@
+from errno import WSAECONNREFUSED
 from os import path as os_path, listdir as os_listdir
 from app_classes import Document, Entity, Extract
 from aux_funcs import format_date, format_number
@@ -28,16 +29,18 @@ def pre_process_documents(folder_path: str):
         
     return documents
 
-def extract_from_text(documents: list, destination_folder: str):
+def extract_from_text(documents: list, destination_folder: str, words_to_keep: str, words_to_filter: str):
     """Extract data from the the document and send it to excel."""
     doc: Document; ent: Entity; ext: Extract
-    
+
     for doc in documents:
         with open(f'{PATH}/app/text/naturals/{TIMESTAMP()}__{doc.name}__nat.txt', 'w', encoding='utf-8') as file:
             file.write(doc.natural_text)
 
         with open(f'{PATH}/app/text/processed/{TIMESTAMP()}__{doc.name}__prc.txt', 'w', encoding='utf-8') as file:
             file.write(doc.text)
+
+        doc.keep_keywords_from_extracts(words_to_keep, words_to_filter)
 
         for ext in doc.extracts:
             ext.set_properties()
@@ -77,7 +80,7 @@ def treat_dataframe(dataframe: DataFrame):
     dataframe = dataframe.drop_duplicates()
     dataframe = dataframe.sort_values(['YEAR', 'MONTH'])
     dataframe = dataframe.reset_index(drop=True)
-    # dataframe = dataframe.groupby(['YEAR','MONTH']).sum()
+
     return dataframe
 
 def write_to_excel(dataframe: DataFrame, doc_name: str, pk: str, destination_folder: str):
@@ -108,21 +111,5 @@ def write_to_excel(dataframe: DataFrame, doc_name: str, pk: str, destination_fol
             ws.autofit(axis="rows")
 
     # Save
-    wb.save(f'{destination_folder}{TIMESTAMP()}__{doc_name}__{pk}.xlsx')
+    wb.save(f'{destination_folder}/{TIMESTAMP()}__{doc_name}__{pk}.xlsx')
     wb.close()
-
-
-try:
-    docs = pre_process_documents(f'{PATH}/documents/')       # Used by GUI access word lists in each document
-
-    for doc in docs:
-        doc.remove_keywords_from_extracts({
-            'header': ['Data de Crédito', 'Nºpessoal', 'Nº pessoal', 'Nº Pessoal'],
-            'body': ['ORDENADO', 'Ordenado', 'Adiant.Vale Transporte', 'ADIANT.VALE TRANSPORTE', 'HORAS EXTRAS']
-        }, words_to_filter= ['Posição', 'IR', 'Agência Crédito', 'Conta', 'Período', 'Provis', 'Posição', 'Ag.Crédito', 'Nome', 'Empresa'])
-
-    extract_from_text(docs, f'{PATH}/spreadsheets/')      # This happens when you click EXTRACT
-except Exception as error:
-    with open(f'{PATH}/app/log.txt', 'a', encoding='utf-8') as file:
-        file.write(str(error))
-    print(error)

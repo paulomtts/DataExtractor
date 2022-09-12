@@ -1,5 +1,6 @@
 from pandas import DataFrame, concat
 from tika import parser as tkpr
+import unidecode
 
 import re
 
@@ -93,18 +94,28 @@ class Document():
                 self.keywords[area] += words
             self.keywords[area] = list(set(self.keywords[area]))
 
-    def remove_keywords_from_extracts(self, words_to_keep: dict, words_to_filter: list):
-        """Remove keywords from each Extract."""
+    def keep_keywords_from_extracts(self, words_to_keep: list, words_to_filter: list):
+        """Keep only certain keywords in each Extract."""
         ext: Extract
+
+        normalize = lambda word: unidecode.unidecode(word).replace(' ', '').upper()
 
         def _word_filter(word: str, words_to_filter: list):
             if any(av in word for av in words_to_filter) and len(word) <= 2: 
                 return None
             return word
 
+
+        words_to_keep = [normalize(wrd).replace(' ', '').upper() for wrd in words_to_keep]
+
+        for ext in self.extracts:
+            wrd = normalize(ext.pk_key).replace(' ', '').upper()
+            if wrd not in words_to_keep:
+                words_to_keep.append(wrd)
+
         for ext in self.extracts:
             for area, word_lst in ext.keywords.items():
-                new_wrd_lst = (wrd for wrd in word_lst if wrd in words_to_keep[area])
+                new_wrd_lst = (wrd for wrd in word_lst if normalize(wrd) in words_to_keep)
                 new_wrd_lst = [wrd for wrd in new_wrd_lst if _word_filter(wrd, words_to_filter) is not None]
                 ext.keywords[area] = new_wrd_lst
 
@@ -148,7 +159,7 @@ class Entity():
 
         dfs = []
         for area, words in self.keywords.items():
-            data = [ext.properties[area] for ext in self.extracts if ext.properties[area] != {}]
+            data = [ext.properties[area] for ext in self.extracts]
             dfs.append(DataFrame(data, columns=words))
 
         self.dataframe = concat(dfs, axis=1)
