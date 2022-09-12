@@ -1,4 +1,3 @@
-from errno import WSAECONNREFUSED
 from os import path as os_path, listdir as os_listdir
 from app_classes import Document, Entity, Extract
 from aux_funcs import format_date, format_number
@@ -9,7 +8,7 @@ from pandas import DataFrame
 import json
 
 PATH = os_path.dirname(__file__)
-TIMESTAMP = lambda: str(datetime.now().strftime('%y-%m-%dT%H-%M'))
+TIMESTAMP = lambda: str(datetime.now().strftime('%y-%m-%dT%H-%M-%S'))
 
 with open(f'{PATH}/app/config.json', encoding='utf-8') as json_file:
     LAYOUT_CONFIGS = json.load(json_file)

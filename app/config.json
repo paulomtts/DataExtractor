@@ -3,7 +3,9 @@
         "INFO":{
             "layout_name": "Bradesco Lt 1",
             "primary_key_area": "header",
-            "primary_key_name": "Nº pessoal"
+            "primary_key_name": "Nº pessoal",
+            "date_key_area": "header",
+            "date_key_name": "Data de Crédito"
         },
         "PATTERNS":{            
             "EXTRACTION":{
@@ -23,7 +25,9 @@
         "INFO":{
             "layout_name": "Bradesco Lt 2",
             "primary_key_area": "header",
-            "primary_key_name": "Nºpessoal"
+            "primary_key_name": "Nºpessoal",
+            "date_key_area": "header",
+            "date_key_name": "Data de Crédito"
         },
         "PATTERNS":{
             "EXTRACTION":{
@@ -43,7 +47,9 @@
         "INFO":{
             "layout_name": "Bradesco Lt 3 - Férias",
             "primary_key_area": "header",
-            "primary_key_name": "Nº Pessoal"
+            "primary_key_name": "Nº Pessoal",
+            "date_key_area": "header",
+            "date_key_name": "Data de Crédito"
         },
         "PATTERNS":{
             "EXTRACTION":{

@@ -12,9 +12,12 @@ class Extract():
         self.layout_name   :str     = layout_info['layout_name']
         self.pk_area       :str     = layout_info['primary_key_area']
         self.pk_key        :str     = layout_info['primary_key_name']
+        self.date_area     :str     = layout_info['date_key_area']
+        self.date_key      :str     = layout_info['date_key_name']
         self.query_ptts    :dict    = query_ptts
 
         self.pk            :str     = None
+        self.date          :str     = None
         self.keywords      :dict    = {}
         self.properties    :dict    = {key:{} for key in kwargs.keys()} # {area_name: {field_name: value}
 
@@ -55,6 +58,7 @@ class Extract():
                 self.properties[area].update({key: val})
 
         self.pk = self.properties[self.pk_area][self.pk_key]
+        self.date = self.properties[self.date_area][self.date_key]
 
 
 class Document():
@@ -109,9 +113,14 @@ class Document():
         words_to_keep = [normalize(wrd).replace(' ', '').upper() for wrd in words_to_keep]
 
         for ext in self.extracts:
-            wrd = normalize(ext.pk_key).replace(' ', '').upper()
-            if wrd not in words_to_keep:
-                words_to_keep.append(wrd)
+            primary_key_name = normalize(ext.pk_key)
+            date_key_name = normalize(ext.date_key)
+
+            if primary_key_name not in words_to_keep:
+                words_to_keep.append(primary_key_name)
+
+            if date_key_name not in words_to_keep:
+                words_to_keep.append(date_key_name)
 
         for ext in self.extracts:
             for area, word_lst in ext.keywords.items():

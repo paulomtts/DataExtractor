@@ -49,18 +49,12 @@ class App(tk.Tk):
             font=('Helvetica', 11))
         
         # Entry
-        self.textbox_logger = tk.Text(self, height=3, font=('Helvetica', 9), wrap=tk.WORD)
+        self.textbox_logger = tk.Text(self, height=7, font=('Helvetica', 9), wrap=tk.WORD)
         
         scroll_bar = tk.Scrollbar(self, orient='vertical', command=self.textbox_logger.yview)
         
         self.textbox_logger['yscrollcommand'] = scroll_bar.set
         self.textbox_logger.config(state=tk.DISABLED)
- 
-        # Progress Bar
-        self.progress_bar = ttk.Progressbar(
-            self,
-            orient='horizontal',
-            mode='indeterminate')
 
         # Buttons
         button_source = ttk.Button(self,
@@ -140,10 +134,8 @@ class App(tk.Tk):
         self.entry_source.grid(column=1, row=0, sticky='W')
         self.entry_destination.grid(column=1, row=1, sticky='W')
 
-        self.progress_bar.grid(column=1, row=2, sticky='EW', **{'padx': 0, 'pady': 20})
-
-        self.textbox_logger.grid(column=1, row=3, sticky='EW', pady=10)
-        scroll_bar.grid(column=1, row=3, sticky='e')
+        self.textbox_logger.grid(rowspan=2, column=1, row=2, sticky='EWNS', pady=10)
+        scroll_bar.grid(rowspan=2, column=1, row=2, sticky='ens')
         
         button_source.grid(column=2, row=0, **{'padx': 10, 'pady': 10})
         button_destination.grid(column=2, row=1, **{'padx': 10, 'pady': 10})
@@ -206,8 +198,8 @@ class App(tk.Tk):
         self.listbox_right.delete(0, tk.END)
         
         if source_path != '':
-            self.progress_bar.start()
             self.log_to_textbox(f'#{self.counter} Acquiring keywords...')
+            self.update()
             self.counter += 1
 
             try:
@@ -233,7 +225,6 @@ class App(tk.Tk):
 
             finally:
                 self.log_to_textbox('Done!\n_____')
-                self.progress_bar.stop()
         else:
             tk.messagebox.showinfo('Warning', 'Please select a source location!')
 
@@ -246,14 +237,14 @@ class App(tk.Tk):
         destination_path = self.entry_destination.get()
 
         if self.docs != None and items != [] and destination_path != '':
-            self.progress_bar.start()
-            self.log_to_textbox(f'{self.counter} Extracting keywords...')
+            self.log_to_textbox(f'#{self.counter} Extracting keywords...')
+            self.update()
             self.counter += 1
 
             try:           
                 extract_from_text(self.docs, destination_path, words_to_keep=items, words_to_filter=words_to_filter)
             except Exception as error:
-                with open(f'{PATH}/app/text/logs/log.txt', 'a', encoding='utf-8') as file:
+                with open(f'{PATH}/app/logs/log.txt', 'a', encoding='utf-8') as file:
                     file.write(f'{TIMESTAMP()} - {str(error)}\n')
 
                 self.log_to_textbox(f'Could not extract keywords from text. Check the log file for more information.')
@@ -264,7 +255,6 @@ class App(tk.Tk):
 
             finally:
                 self.log_to_textbox('Done!\n_____')
-                self.progress_bar.stop()
         else:
             tk.messagebox.showinfo('Warning', 'Please select a destination path and load the files!')
 
