@@ -1,7 +1,9 @@
-app/extracts/naturals/*.txt
-app/extracts/*.txt
+app/logs/*.txt
+app/text/naturals/*.txt
+app/text/extracts/*.txt
+app/text/processed/*.txt
 documents/*.pdf
-spreadsheets/*
+spreadsheets/*.xlsx
 main
 
 
