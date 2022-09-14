@@ -1,7 +1,7 @@
 from pandas import DataFrame, concat
-from tika import parser as tkpr
-import unidecode
 
+import unidecode
+import PyPDF2
 import re
 
 class Extract():
@@ -63,15 +63,14 @@ class Extract():
 
 class Document():
     def __init__(self, file_path: str, file_name: str) -> None:
-        self.natural_text   :str    = tkpr.from_file(f'{file_path}/{file_name}')['content']
-        text_lines          :list   = []
 
-        for ln in self.natural_text.split('\n'):
-            if ln == '': continue
-            text_lines.append(ln.strip())
+        with open(f'{file_path}/{file_name}', mode='rb') as file:
+            reader = PyPDF2.PdfFileReader(file)
+            lines = (line.strip() for page in reader.pages for line in page.extract_text().split('\n') if line.strip() != '')
+            self.text      :str    = '\n'.join(lines)
 
+        self.natural_text = ''
         self.name      :str    = file_name.replace('.pdf', '')
-        self.text      :str    = '\n'.join(text_lines)
         self.entities  :list   = []
         self.extracts  :list   = []
         self.keywords  :list   = {}

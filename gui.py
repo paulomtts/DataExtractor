@@ -1,12 +1,11 @@
-import tika
+from main import pre_process_documents, extract_from_text, update_json, timestamp, PATH
+from tkinter.messagebox import askyesno
+from tkinter import filedialog, ttk
+
 import tkinter as tk
 import unidecode
 
-from main import pre_process_documents, extract_from_text, update_json, timestamp, PATH
-from tkinter import filedialog, ttk
-
 words_to_filter = ['Posição', 'IR', 'Agência Crédito', 'Conta', 'Período', 'Provis', 'Posição', 'Ag.Crédito', 'Nome', 'Empresa']
-tika.initVM()
 
 class App(tk.Tk):
     def __init__(self):
@@ -273,6 +272,11 @@ class App(tk.Tk):
 
     def update_button(self):
         """Attempt to update the JSON file."""
+
+        proceed = askyesno('Confirmation', 'Are you sure that you want to update?', default='no')
+        
+        if not proceed:
+            return
 
         self.log_to_textbox('Requesting at https://api.jsonbin.io/v3/ ...')
         self.update()
