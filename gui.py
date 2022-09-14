@@ -234,6 +234,9 @@ class App(tk.Tk):
                     file.write(f'{timestamp()} - {str(error)}\n')
 
                 self.log_to_textbox(f'Could not pre-process files. Check the log file for more information.')
+                with open(f'{PATH}/app/logs/{timestamp()}_opr.txt', 'w', encoding='utf-8') as file:
+                    file.write(self.textbox_logger.get("1.0", tk.END))
+        
                 tk.messagebox.showwarning('Warning', f'Error: {error}\nFor more information, please see the log file.')
 
             finally:
@@ -284,8 +287,6 @@ class App(tk.Tk):
             self.log_to_textbox('Update complete! Please reload.\n_____')
         else:
             self.log_to_textbox(f'{response}. Visit https://jsonbin.io/api-reference/bins/read for more information.')
-
-
 
 
 if __name__ == "__main__":
