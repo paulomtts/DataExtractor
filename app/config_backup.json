@@ -1,66 +1,66 @@
 {
-    "LAYOUT_0": {
-        "INFO": {
+    "LAYOUT_0":{
+        "INFO":{
             "layout_name": "Bradesco Lt 1",
             "primary_key_area": "header",
             "primary_key_name": "Nº pessoal",
             "date_key_area": "header",
             "date_key_name": "Data de Crédito"
         },
-        "PATTERNS": {
-            "EXTRACTION": {
-                "layout": "(?P<header>Demonstrativo de Pagamento(?:.*\n)*?Agência Crédito: .*)\n(?P<body>(?:.*\n)*?BASES / Depósito FGTS.*)\n(?P<footer>INSS: (?:.*\n)*?FGTS: .*)"
+        "PATTERNS":{            
+            "EXTRACTION":{
+                "layout": "(?P<header>Demonstrativo de Pagamento(?:.*\n)*?Agência Crédito: .*)\n(?P<body>(?:.*\n)*?BASES \/ Depósito FGTS.*)\n(?P<footer>INSS: (?:.*\n)*?FGTS: .*)"
             },
-            "PRE_PROCESSING": {
+            "PRE_PROCESSING":{
                 "header": "([A-Z].+?)(?::)",
                 "body": "^[\\/A-Z]*?[0-9]{2,}(?: - )?(.*?)(?=[0-9]*.[0-9]*,).*$"
             },
-            "QUERYING": {
-                "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,./\\s-]*?\n|[\\dA-z-.,*\\/]*)",
+            "QUERYING":{
+                "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,.\/\\s-]*?\n|[\\dA-z-.,*\\/]*)",
                 "body": "^[0-9A-Z\\/]{{4,5}}\\s?-?\\s?(?P<name>{}):?\\s+(?:[0-9.,]*)\\s+(?P<value>[0-9.,]*)$"
             }
         }
     },
-    "LAYOUT_1": {
-        "INFO": {
+    "LAYOUT_1":{
+        "INFO":{
             "layout_name": "Bradesco Lt 2",
             "primary_key_area": "header",
             "primary_key_name": "Nºpessoal",
             "date_key_area": "header",
             "date_key_name": "Data de Crédito"
         },
-        "PATTERNS": {
-            "EXTRACTION": {
+        "PATTERNS":{
+            "EXTRACTION":{
                 "layout": "(?P<header>Demostrativo de Pagamento(?:.*\n)*?Ag.Crédito: .*)\n(?P<body>(?:.*\n)*?LÍQUIDO CREDITADO EM CONTA.*)\n(?P<footer>INSS:(?:\\s?.*\n)*?FGTS:\\s?.*)"
             },
-            "PRE_PROCESSING": {
+            "PRE_PROCESSING":{
                 "header": "([A-Z].+?)(?::)",
                 "body": "^[\\/A-Z]*?[0-9]{2,}(?: - )?(.*?)(?=[0-9]*.[0-9]*,).*$"
             },
-            "QUERYING": {
-                "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,./\\s-]*?\n|[\\dA-z-.,*\\/]*)",
+            "QUERYING":{
+                "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,.\/\\s-]*?\n|[\\dA-z-.,*\\/]*)",
                 "body": "^[0-9A-Z\\/]{{4,5}}\\s?-?\\s?(?P<name>{}):?\\s+(?:[0-9.,]*)\\s+(?P<value>[0-9.,]*)$"
             }
         }
     },
-    "LAYOUT_2": {
-        "INFO": {
+    "LAYOUT_2":{
+        "INFO":{
             "layout_name": "Bradesco Lt 3 - Férias",
             "primary_key_area": "header",
             "primary_key_name": "Nº Pessoal",
             "date_key_area": "header",
             "date_key_name": "Data de Crédito"
         },
-        "PATTERNS": {
-            "EXTRACTION": {
+        "PATTERNS":{
+            "EXTRACTION":{
                 "layout": "(?P<header>Demonstrativo de Férias(?:.*\n)*?Período de Descanso: .*)\n(?P<body>(?:.*\n)*?BASES.*)\n(?P<footer>Remuneração: (?:.*\n)*?.*)"
             },
-            "PRE_PROCESSING": {
+            "PRE_PROCESSING":{
                 "header": "([A-Z].+?)(?::)",
                 "body": "^[\\/A-Z]*?[0-9]{2,}(?: - )?(.*?)(?=[0-9]*.[0-9]*,).*$"
             },
-            "QUERYING": {
-                "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,./\\s-]*?\n|[\\dA-z-.,*\\/]*)",
+            "QUERYING":{
+                "header": "(?P<name>{}):(?:[:]?\\s*)(?P<value>[\\dA-z,.\/\\s-]*?\n|[\\dA-z-.,*\\/]*)",
                 "body": "^[0-9A-Z\\/]{{4,5}}\\s?-?\\s?(?P<name>{}):?\\s+(?:[0-9.,]*)\\s+(?P<value>[0-9.,]*)$"
             }
         }

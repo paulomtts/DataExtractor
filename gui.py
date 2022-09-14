@@ -1,10 +1,12 @@
+import tika
 import tkinter as tk
 import unidecode
 
-from main import pre_process_documents, extract_from_text, TIMESTAMP, PATH
+from main import pre_process_documents, extract_from_text, update_json, timestamp, PATH
 from tkinter import filedialog, ttk
 
 words_to_filter = ['Posição', 'IR', 'Agência Crédito', 'Conta', 'Período', 'Provis', 'Posição', 'Ag.Crédito', 'Nome', 'Empresa']
+tika.initVM()
 
 class App(tk.Tk):
     def __init__(self):
@@ -85,6 +87,10 @@ class App(tk.Tk):
             text="Save Profile",
             command= lambda: self.save_profile())
 
+        button_update = ttk.Button(self, 
+            text="Update",
+            command= lambda: self.update_button())
+
         # Listboxes
         self.list_items_left = tk.Variable(value=[])
         self.list_items_right = tk.Variable(value=[])
@@ -135,18 +141,22 @@ class App(tk.Tk):
         self.entry_destination.grid(column=1, row=1, sticky='W')
 
         self.textbox_logger.grid(rowspan=2, column=1, row=2, sticky='EWNS', pady=10)
-        scroll_bar.grid(rowspan=2, column=1, row=2, sticky='ens')
+        scroll_bar.grid(rowspan=2, column=1, row=2, sticky='e', ipady=29)
         
         button_source.grid(column=2, row=0, **{'padx': 10, 'pady': 10})
         button_destination.grid(column=2, row=1, **{'padx': 10, 'pady': 10})
-        button_load.grid(column=2, row=2, **{'padx': 10, 'pady': 10})
-        button_extract_0.grid(column=1, row=6, sticky='W', **{'padx': 0, 'pady': 10})
-        button_extract_1.grid(column=1, row=6, sticky='E', **{'padx': 0, 'pady': 10})
+
+        button_load.grid(rowspan=2, column=2, row=2, sticky='ns', **{'padx': 0, 'pady': 10})
+
         button_load_profile.grid(column=2, row=5, sticky='N', **{'padx': 0, 'pady': 0})
         button_save_profile.grid(column=2, row=5, sticky='N', **{'padx': 0, 'pady': 40})
+        button_update.grid(column=2, row=5, sticky='S')
 
-        self.listbox_left.grid(column=1, row=5, sticky='W', **{'padx': 0, 'pady': 0})
-        self.listbox_right.grid(column=1, row=5, sticky='E', **{'padx': 0, 'pady': 0})
+        button_extract_0.grid(column=1, row=6, sticky='W', **{'padx': 0, 'pady': 10})
+        button_extract_1.grid(column=1, row=6, sticky='E', **{'padx': 0, 'pady': 10})
+
+        self.listbox_left.grid(column=1, row=5, sticky='W')
+        self.listbox_right.grid(column=1, row=5, sticky='E')
         
         # Style
         self.style = ttk.Style(self)
@@ -216,9 +226,12 @@ class App(tk.Tk):
                 insert_lst.sort()
                 self.listbox_left.insert(0, *insert_lst)
 
+                if not self.docs:
+                    self.log_to_textbox('No files were found in the selected folder.')
+
             except Exception as error:
                 with open(f'{PATH}/app/logs/log.txt', 'a', encoding='utf-8') as file:
-                    file.write(f'{TIMESTAMP()} - {str(error)}\n')
+                    file.write(f'{timestamp()} - {str(error)}\n')
 
                 self.log_to_textbox(f'Could not pre-process files. Check the log file for more information.')
                 tk.messagebox.showwarning('Warning', f'Error: {error}\nFor more information, please see the log file.')
@@ -237,7 +250,7 @@ class App(tk.Tk):
         destination_path = self.entry_destination.get()
 
         if self.docs != None and items != [] and destination_path != '':
-            self.log_to_textbox(f'#{self.counter} Extracting keywords...')
+            self.log_to_textbox(f'#{self.counter} Extracting data...')
             self.update()
             self.counter += 1
 
@@ -245,10 +258,10 @@ class App(tk.Tk):
                 extract_from_text(self.docs, destination_path, words_to_keep=items, words_to_filter=words_to_filter)
             except Exception as error:
                 with open(f'{PATH}/app/logs/log.txt', 'a', encoding='utf-8') as file:
-                    file.write(f'{TIMESTAMP()} - {str(error)}\n')
+                    file.write(f'{timestamp()} - {str(error)}\n')
 
                 self.log_to_textbox(f'Could not extract keywords from text. Check the log file for more information.')
-                with open(f'{PATH}/app/logs/{TIMESTAMP()}_opr.txt', 'w', encoding='utf-8') as file:
+                with open(f'{PATH}/app/logs/{timestamp()}_opr.txt', 'w', encoding='utf-8') as file:
                     file.write(self.textbox_logger.get("1.0", tk.END))
 
                 tk.messagebox.showwarning('Warning', f'Error: {error}\nFor more information, please see the log file.')
@@ -257,6 +270,21 @@ class App(tk.Tk):
                 self.log_to_textbox('Done!\n_____')
         else:
             tk.messagebox.showinfo('Warning', 'Please select a destination path and load the files!')
+
+    def update_button(self):
+        """Attempt to update the JSON file."""
+
+        self.log_to_textbox('Requesting at https://api.jsonbin.io/v3/ ...')
+        self.update()
+        response = update_json()
+
+        if response.status_code == 200:
+            self.listbox_left.delete(0, tk.END)
+            self.listbox_right.delete(0, tk.END)
+            self.log_to_textbox('Update complete! Please reload.\n_____')
+        else:
+            self.log_to_textbox(f'{response}. Visit https://jsonbin.io/api-reference/bins/read for more information.')
+
 
 
 

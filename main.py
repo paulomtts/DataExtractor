@@ -1,17 +1,41 @@
 from os import path as os_path, listdir as os_listdir
 from app_classes import Document, Entity, Extract
 from aux_funcs import format_date, format_number
+from configparser import ConfigParser
 from xlwings import App, Book, Sheet
 from datetime import datetime
 from pandas import DataFrame
 
+import requests
 import json
 
 PATH = os_path.dirname(__file__)
-TIMESTAMP = lambda: str(datetime.now().strftime('%y-%m-%dT%H-%M-%S'))
+timestamp = lambda: str(datetime.now().strftime('%y-%m-%dT%H-%M-%S'))
 
 with open(f'{PATH}/app/config.json', encoding='utf-8') as json_file:
     LAYOUT_CONFIGS = json.load(json_file)
+
+
+# UPDATE METHODS ###########################################################################################
+def update_json():
+    conf = ConfigParser()
+    conf.read(f'{PATH}/app/config.ini')
+
+    id = conf['API']['id']
+    
+    url = f'https://api.jsonbin.io/v3/b/{id}/'
+    headers = {
+        'X-Master-Key': conf['API']['X_Master_Key'],
+        'X-Bin-Meta': conf['API']['X_Bin_Meta']
+    }
+
+    req = requests.get(url, json=None, headers=headers)
+
+    if req.status_code == 200:
+        with open(f'{PATH}/app/config.json', 'w', encoding='utf-8') as file:
+            file.write(json.dumps(req.json(), ensure_ascii=False, indent=4))
+    
+    return req
 
 
 # INPUT METHODS ############################################################################################
@@ -33,10 +57,10 @@ def extract_from_text(documents: list, destination_folder: str, words_to_keep: s
     doc: Document; ent: Entity; ext: Extract
 
     for doc in documents:
-        with open(f'{PATH}/app/text/naturals/{TIMESTAMP()}__{doc.name}__nat.txt', 'w', encoding='utf-8') as file:
+        with open(f'{PATH}/app/text/naturals/{timestamp()}__{doc.name}__nat.txt', 'w', encoding='utf-8') as file:
             file.write(doc.natural_text)
 
-        with open(f'{PATH}/app/text/processed/{TIMESTAMP()}__{doc.name}__prc.txt', 'w', encoding='utf-8') as file:
+        with open(f'{PATH}/app/text/processed/{timestamp()}__{doc.name}__prc.txt', 'w', encoding='utf-8') as file:
             file.write(doc.text)
 
         doc.keep_keywords_from_extracts(words_to_keep, words_to_filter)
@@ -44,7 +68,7 @@ def extract_from_text(documents: list, destination_folder: str, words_to_keep: s
         for ext in doc.extracts:
             ext.set_properties()
 
-            with open(f'{PATH}/app/text/extracts/{TIMESTAMP()}__{doc.name}__ext.txt', 'a', encoding='utf-8') as file:
+            with open(f'{PATH}/app/text/extracts/{timestamp()}__{doc.name}__ext.txt', 'a', encoding='utf-8') as file:
                 for prop in ext.properties.keys():
                     file.write(getattr(ext, prop) + '\n')
                 file.write('----\n')
@@ -110,5 +134,5 @@ def write_to_excel(dataframe: DataFrame, doc_name: str, pk: str, destination_fol
             ws.autofit(axis="rows")
 
     # Save
-    wb.save(f'{destination_folder}/{TIMESTAMP()}__{doc_name}__{pk}.xlsx')
+    wb.save(f'{destination_folder}/{timestamp()}__{doc_name}__{pk}.xlsx')
     wb.close()

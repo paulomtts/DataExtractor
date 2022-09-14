@@ -4,6 +4,7 @@ app/text/extracts/*.txt
 app/text/processed/*.txt
 documents/*.pdf
 spreadsheets/*.xlsx
+output/
 main
 
 
