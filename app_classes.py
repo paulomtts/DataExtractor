@@ -1,5 +1,7 @@
+from ast import arg
 from pandas import DataFrame, concat
 
+import threading
 import unidecode
 import PyPDF2
 import re
@@ -61,19 +63,23 @@ class Extract():
         self.date = self.properties[self.date_area][self.date_key]
 
 
-class Document():
+class Document(threading.Thread):
     def __init__(self, file_path: str, file_name: str) -> None:
+        super(Document, self).__init__()
+        self.file_path = file_path
+        self.file_name = file_name
 
-        with open(f'{file_path}/{file_name}', mode='rb') as file:
+    def run(self):
+        with open(f'{self.file_path}/{self.file_name}', mode='rb') as file:
             reader = PyPDF2.PdfFileReader(file)
             lines = (line.strip() for page in reader.pages for line in page.extract_text().split('\n') if line.strip() != '')
-            self.text      :str    = '\n'.join(lines)
+            self.text  :str    = '\n'.join(lines)
 
-        self.natural_text = ''
-        self.name      :str    = file_name.replace('.pdf', '')
+        self.name      :str    = self.file_name.replace('.pdf', '')
         self.entities  :list   = []
         self.extracts  :list   = []
         self.keywords  :list   = {}
+
 
     # METHODS #####################################################
     def set_extracts(self, extraction_pattern: dict, querying_patterns: dict, layout_info: dict):
@@ -133,7 +139,6 @@ class Document():
 
         primary_keys = set([ext.pk for ext in self.extracts])
         self.entities = [Entity(pk) for pk in primary_keys]
-
 
 class Entity():
     def __init__(self, pk: str) -> None:

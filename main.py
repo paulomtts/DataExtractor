@@ -45,12 +45,16 @@ def pre_process_documents(folder_path: str):
     
     files = [(folder_path, file_name) for file_name in os_listdir(folder_path) if '.pdf' in file_name]
     documents  = [Document(file_path, file_name) for (file_path, file_name) in files]
-    
+    for doc in documents:
+        doc: Document
+        doc.start()
+    doc.join()
+
     for doc in documents:
         for layout in LAYOUT_CONFIGS.values():
             doc.set_extracts(layout['PATTERNS']['EXTRACTION'], layout['PATTERNS']['QUERYING'], layout['INFO'])
             doc.set_keywords(layout['PATTERNS']['PRE_PROCESSING'])
-        
+            
     return documents
 
 def extract_from_text(documents: list, destination_folder: str, words_to_keep: str, words_to_filter: str):
@@ -58,9 +62,6 @@ def extract_from_text(documents: list, destination_folder: str, words_to_keep: s
     doc: Document; ent: Entity; ext: Extract
 
     for doc in documents:
-        with open(f'{PATH}/app/text/naturals/{timestamp()}__{doc.name}__nat.txt', 'w', encoding='utf-8') as file:
-            file.write(doc.natural_text)
-
         with open(f'{PATH}/app/text/processed/{timestamp()}__{doc.name}__prc.txt', 'w', encoding='utf-8') as file:
             file.write(doc.text)
 

@@ -1,9 +1,12 @@
+from xml.dom.pulldom import START_DOCUMENT
 from main import pre_process_documents, extract_from_text, update_json, timestamp, PATH
 from tkinter.messagebox import askyesno
-from tkinter import filedialog, ttk
+from tkinter import DISABLED, HORIZONTAL, filedialog, ttk
 
 import tkinter as tk
+import threading
 import unidecode
+import time
 
 words_to_filter = ['Posição', 'IR', 'Agência Crédito', 'Conta', 'Período', 'Provis', 'Posição', 'Ag.Crédito', 'Nome', 'Empresa']
 
@@ -57,38 +60,8 @@ class App(tk.Tk):
         self.textbox_logger['yscrollcommand'] = scroll_bar.set
         self.textbox_logger.config(state=tk.DISABLED)
 
-        # Buttons
-        button_source = ttk.Button(self,
-            text="Select",
-            command = lambda: self.path_bttn(self.entry_source))
-
-        button_destination = ttk.Button(self, 
-            text="Select",
-            command = lambda: self.path_bttn(self.entry_destination))
-
-        button_load = ttk.Button(self, 
-            text="Load",
-            command= lambda: self.load_button())
-        
-        button_extract_0 = ttk.Button(self, 
-            text="Extract",
-            command= lambda: self.extract_button(self.list_items_left))
-
-        button_extract_1 = ttk.Button(self, 
-            text="Extract",
-            command= lambda: self.extract_button(self.list_items_right))
-
-        button_load_profile = ttk.Button(self, 
-            text="Load Profile",
-            command= lambda: self.load_profile())
-
-        button_save_profile = ttk.Button(self, 
-            text="Save Profile",
-            command= lambda: self.save_profile())
-
-        button_update = ttk.Button(self, 
-            text="Update",
-            command= lambda: self.update_button())
+        # Progress bar
+        self.progress_bar = ttk.Progressbar(self, orient=HORIZONTAL, length=100, mode='indeterminate')
 
         # Listboxes
         self.list_items_left = tk.Variable(value=[])
@@ -129,6 +102,41 @@ class App(tk.Tk):
         self.listbox_left.bind('<Double-1>', list_items_left_click)
         self.listbox_right.bind('<Double-1>', list_items_right_click)
 
+        # Buttons
+        button_source = ttk.Button(self,
+            text="Select",
+            command = lambda: self.path_bttn(self.entry_source))
+
+        button_destination = ttk.Button(self, 
+            text="Select",
+            command = lambda: self.path_bttn(self.entry_destination))
+
+        self.button_load = ttk.Button(self, 
+            text="Load",
+            command= lambda: threading.Thread(target=self.load_button).start())
+        
+        self.button_extract_0 = ttk.Button(self, 
+            text="Extract",
+            command= lambda: threading.Thread(target=self.extract_button, args=(self.list_items_left,)).start())
+
+        self.button_extract_1 = ttk.Button(self, 
+            text="Extract",
+            command= lambda: threading.Thread(target=self.extract_button, args=(self.list_items_right,)).start())
+
+        button_load_profile = ttk.Button(self, 
+            text="Load Profile",
+            command= self.load_profile)
+
+        button_save_profile = ttk.Button(self, 
+            text="Save Profile",
+            command= self.save_profile)
+
+        self.button_update = ttk.Button(self, 
+            text="Update",
+            command= lambda: threading.Thread(target=self.update_button).start())
+
+
+
 
         ##################################################################################################################################################
         # Positioning
@@ -145,14 +153,15 @@ class App(tk.Tk):
         button_source.grid(column=2, row=0, **{'padx': 10, 'pady': 10})
         button_destination.grid(column=2, row=1, **{'padx': 10, 'pady': 10})
 
-        button_load.grid(rowspan=2, column=2, row=2, sticky='ns', **{'padx': 0, 'pady': 10})
+        self.button_load.grid(rowspan=2, column=2, row=2, sticky='ns', **{'padx': 0, 'pady': 10})
+        self.progress_bar.grid(column=2, row=4, sticky='N')
 
         button_load_profile.grid(column=2, row=5, sticky='N', **{'padx': 0, 'pady': 0})
         button_save_profile.grid(column=2, row=5, sticky='N', **{'padx': 0, 'pady': 40})
-        button_update.grid(column=2, row=5, sticky='S')
+        self.button_update.grid(column=2, row=5, sticky='S')
 
-        button_extract_0.grid(column=1, row=6, sticky='W', **{'padx': 0, 'pady': 10})
-        button_extract_1.grid(column=1, row=6, sticky='E', **{'padx': 0, 'pady': 10})
+        self.button_extract_0.grid(column=1, row=6, sticky='W', **{'padx': 0, 'pady': 10})
+        self.button_extract_1.grid(column=1, row=6, sticky='E', **{'padx': 0, 'pady': 10})
 
         self.listbox_left.grid(column=1, row=5, sticky='W')
         self.listbox_right.grid(column=1, row=5, sticky='E')
@@ -162,7 +171,6 @@ class App(tk.Tk):
         self.style.configure('TLabel', font=('Helvetica', 11))
         self.style.configure('TButton', font=('Helvetica', 11))
         self.style.configure('TText', font=('Helvetica', 11))
-
 
 
     def log_to_textbox(self, text: str):
@@ -202,13 +210,20 @@ class App(tk.Tk):
 
         normalize = lambda word: unidecode.unidecode(word).replace(' ', '').upper()
 
+        self.progress_bar.start(3)
+        self.button_extract_0['state'] = 'disabled'
+        self.button_extract_1['state'] = 'disabled'
+        self.button_load['state'] = 'disabled'
+        self.button_update['state'] = 'disabled'
+
         source_path = self.entry_source.get()
         self.listbox_left.delete(0, tk.END)
         self.listbox_right.delete(0, tk.END)
         
         if source_path != '':
             self.log_to_textbox(f'#{self.counter} Acquiring keywords...')
-            self.update()
+            
+            start = time.perf_counter()
             self.counter += 1
 
             try:
@@ -236,9 +251,15 @@ class App(tk.Tk):
                 tk.messagebox.showwarning('Warning', f'Error: {error}\nFor more information, please see the log file.')
 
             finally:
-                self.log_to_textbox('Done!\n_____')
+                end = time.perf_counter()
+                self.log_to_textbox(f'Done in {end-start:.2f} seconds!\n_____')
         else:
             tk.messagebox.showinfo('Warning', 'Please select a source location!')
+        self.progress_bar.stop()
+        self.button_extract_0['state'] = 'normal'
+        self.button_extract_1['state'] = 'normal'
+        self.button_load['state'] = 'normal'
+        self.button_update['state'] = 'normal'
 
 
     def extract_button(self, list_items: tk.Variable):
@@ -248,9 +269,12 @@ class App(tk.Tk):
         items = [item for item in list_items.get()]
         destination_path = self.entry_destination.get()
 
+        self.progress_bar.start(3)
+
         if self.docs != None and items != [] and destination_path != '':
             self.log_to_textbox(f'#{self.counter} Extracting data...')
-            self.update()
+            
+            start = time.perf_counter()
             self.counter += 1
 
             try:           
@@ -266,30 +290,38 @@ class App(tk.Tk):
                 tk.messagebox.showwarning('Warning', f'Error: {error}\nFor more information, please see the log file.')
 
             finally:
-                self.log_to_textbox('Done!\n_____')
+                end = time.perf_counter()
+                self.log_to_textbox(f'Done in {end-start:.2f} seconds!\n_____')
         else:
             tk.messagebox.showinfo('Warning', 'Please select a destination path and load the files!')
+        self.progress_bar.stop()
+        
 
     def update_button(self):
         """Attempt to update the JSON file."""
 
+        start = time.perf_counter()
+
         proceed = askyesno('Confirmation', 'Are you sure that you want to update?', default='no')
         
-        if not proceed:
+        if proceed == False:
             return
 
+        self.progress_bar.start(3)
         self.log_to_textbox('Requesting at https://api.jsonbin.io/v3/ ...')
         self.update()
         response = update_json()
 
+        end = time.perf_counter()
         if response.status_code == 200:
             self.listbox_left.delete(0, tk.END)
             self.listbox_right.delete(0, tk.END)
-            self.log_to_textbox('Update complete! Please reload.\n_____')
+            self.docs = None
+            self.log_to_textbox(f'Update completed in {end-start:.2f} seconds! Please reload.\n_____')
         else:
             self.log_to_textbox(f'{response}. Visit https://jsonbin.io/api-reference/bins/read for more information.')
 
-
+        self.progress_bar.stop()
 
 
 if __name__ == "__main__":

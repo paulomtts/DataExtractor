@@ -1,4 +1,3 @@
-from xlsxwriter.utility import xl_col_to_name
 from dateutil import parser as dtpr
 from datetime import datetime
 from re import findall

@@ -31,7 +31,7 @@
         },
         "PATTERNS": {
             "EXTRACTION": {
-                "layout": "(?P<header>Demostrativo de Pagamento(?:.*\n)*?Ag.Crédito: .*)\n(?P<body>(?:.*\n)*?LÍQUIDO CREDITADO EM CONTA.*)\n(?P<footer>INSS:(?:\\s?.*\n)*?FGTS:\\s?.*)"
+                "layout": "(?P<header>Demostrativo de Pagamento(?:.*\n)*?Ag.Crédito: .*)\n(?P<body>(?:.*\n)*?LÍQUIDO CREDITADO EM CONTA.*)\n(?P<footer>INSS:(?:.*\n)*?FGTS:[\\d\\W]*VALOR FGTS: [\\d\\W]*)"
             },
             "PRE_PROCESSING": {
                 "header": "([A-Z].+?)(?::)",
